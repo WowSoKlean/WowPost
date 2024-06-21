@@ -1,0 +1,76 @@
+{% extends 'Accounts/base.html' %}
+{% load static %}
+{% block title %}Home Page{% endblock %}
+{% block content %}
+<body>
+    <div class="container">
+        {% for post in posts %}
+        <div class="card">
+            {% if post.image %}
+            <img src="{{ post.image.url }}" alt="Card Image">
+            {% else %}
+            <img src="/" alt="Card Image">
+            {% endif %}
+            <div class="card-content">
+                <p>{{ post.text }}</p>
+            </div>
+            <div class="post-info">
+                {% if user.is_authenticated %}
+                    <span>Author: {{ post.owner }}</span>
+                {% else %}
+                    <span>Author: Log in to see!</span>
+                {% endif %}
+                <span id="recommended_count-{{ post.id }}">{{ post.recommended_count }} people have recommended this!</span>
+
+                {% if post.created_at %}
+                <span>{{ post.created_at|timesince }}</span>
+                {% endif %}
+            </div>
+            <div class="btn-group">
+                    {% if user.is_authenticated %}
+                    <form id="recommend-form-{{ post.id }}" method="POST" action="{% url 'update_recommendation' post.id %}">
+                        {% csrf_token %}
+                        <label for="checkbox-{{ post.id }}">
+                            <button class="btn btn-danger" type="button" onclick="toggleCheckbox(this)" data-post-id="{{ post.id }}">Recommend
+                                <input id="checkbox-{{ post.id }}" type="checkbox" name="recommend" value="recommend" {% if post.is_recommended %} checked {% endif %}>
+                            </button>
+                        </label>
+                    </form>
+                    {% endif %}
+                
+                    {% if user == post.owner %}
+                    <form id="delete-form-{{ post.id }}" method="POST" action="{% url 'delete_post' post.id %}">
+                        {% csrf_token %}
+                        <button class="btn btn-danger" type="submit">Delete</button>
+                    </form>
+                    {% endif %}
+            </div>
+        </div>
+        <script>
+            function toggleCheckbox(button) {
+                var postId = button.getAttribute('data-post-id');
+                var checkbox = document.getElementById('checkbox-' + postId);
+
+                checkbox.checked = !checkbox.checked;
+                
+                var form = document.getElementById('recommend-form-' + postId);
+                form.submit();
+            }
+        </script>                
+        {% endfor %}
+    </div>
+        {% if user.is_authenticated %}
+        <div class="d-flex justify-content-center mt-5"> 
+            <button class="btn" id="prevButton">Previous Post</button>
+            <button class="btn" id="nextButton">Next Post</button>
+        </div>
+        {% else %}
+        <div class="d-flex justify-content-center mt-5">
+            <button class="btn" data-toggle="tooltip" data-placement="top" title="Please log in to see more posts!">Previous Post</button>
+            <button class="btn" data-toggle="tooltip" data-placement="top" title="Please log in to see more posts!">Next Post</button>
+        </div>
+        {% endif %}
+</body>
+</html>
+
+{% endblock %}
