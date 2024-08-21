@@ -3,6 +3,13 @@
 {% block title %}Home Page{% endblock %}
 {% block content %}
 <body>
+    {% if messages %}
+    	<ul class="messages">
+		{% for message in messages %}
+			<li{% if message.tags %} class="{{ message.tags }}"{% endif %}			      >{{ message }}</li>
+		{% endfor %}
+	</ul>
+     {% endif %}
     <div class="container">
         {% for post in posts %}
         <div class="card">
@@ -16,7 +23,9 @@
             </div>
             <div class="post-info">
                 {% if user.is_authenticated %}
-                    <span>Author: {{ post.owner }}</span>
+                    <span>
+                        <a href="{% url 'profile' post.owner.id %}">Author: {{post.owner}}</a>
+                    </span>
                 {% else %}
                     <span>Author: Log in to see!</span>
                 {% endif %}
@@ -27,50 +36,43 @@
                 {% endif %}
             </div>
             <div class="btn-group">
-                    {% if user.is_authenticated %}
+                {% if user.is_authenticated %}
                     <form id="recommend-form-{{ post.id }}" method="POST" action="{% url 'update_recommendation' post.id %}">
                         {% csrf_token %}
-                        <label for="checkbox-{{ post.id }}">
-                            <button class="btn btn-danger" type="button" onclick="toggleCheckbox(this)" data-post-id="{{ post.id }}">Recommend
-                                <input id="checkbox-{{ post.id }}" type="checkbox" name="recommend" value="recommend" {% if post.is_recommended %} checked {% endif %}>
-                            </button>
+                        <label for="checkbox-{{ post.id }}" class="btn btn-danger" style="display: inline-block; padding: 8px 16px; background-color: #007bff; color: #fff; border-radius: 4px; cursor: pointer; transition: background-color 0.3s;">
+                            Recommend
+                            <input id="checkbox-{{ post.id }}" type="checkbox" name="recommend" value="recommend" onchange="toggleCheckbox(this)" style="display: inline-block; margin-left: 10px; vertical-align: middle;" {% if post.is_recommended %} checked {% endif %}>
                         </label>
                     </form>
-                    {% endif %}
+                {% endif %}
                 
-                    {% if user == post.owner %}
+                {% if user == post.owner %}
                     <form id="delete-form-{{ post.id }}" method="POST" action="{% url 'delete_post' post.id %}">
                         {% csrf_token %}
                         <button class="btn btn-danger" type="submit">Delete</button>
                     </form>
-                    {% endif %}
+                {% endif %}
             </div>
         </div>
         <script>
-            function toggleCheckbox(button) {
-                var postId = button.getAttribute('data-post-id');
-                var checkbox = document.getElementById('checkbox-' + postId);
-
-                checkbox.checked = !checkbox.checked;
-                
-                var form = document.getElementById('recommend-form-' + postId);
+            function toggleCheckbox(checkbox) {
+                var form = checkbox.closest('form');
                 form.submit();
             }
         </script>                
         {% endfor %}
     </div>
-        {% if user.is_authenticated %}
+    {% if user.is_authenticated %}
         <div class="d-flex justify-content-center mt-5"> 
             <button class="btn" id="prevButton">Previous Post</button>
             <button class="btn" id="nextButton">Next Post</button>
         </div>
-        {% else %}
+    {% else %}
         <div class="d-flex justify-content-center mt-5">
             <button class="btn" data-toggle="tooltip" data-placement="top" title="Please log in to see more posts!">Previous Post</button>
             <button class="btn" data-toggle="tooltip" data-placement="top" title="Please log in to see more posts!">Next Post</button>
         </div>
-        {% endif %}
+    {% endif %}
 </body>
-</html>
-
 {% endblock %}
+

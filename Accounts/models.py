@@ -1,6 +1,10 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
+from nanoid import generate
+
+def generate_nanoid():
+    return generate(size=21)
 
 class UserImage(models.Model):
     profileImage = models.ImageField(upload_to='user_images/', null=True, blank=True)
@@ -21,6 +25,7 @@ class UserImage(models.Model):
             return None
     
 class CustomUser(AbstractUser):
+    id = models.CharField(primary_key=True, max_length=21, default=generate_nanoid, editable=False)
     nickname = models.CharField(max_length=50, blank=True)
     birthdate = models.DateField(null=True, blank=True)
     school = models.CharField(max_length=100, blank=True)
@@ -33,6 +38,7 @@ class CustomUser(AbstractUser):
     #friend_count = models.IntegerField(default=0)
     
 class Card(models.Model):
+    id = models.CharField(primary_key=True, max_length=21, default=generate_nanoid, editable=False)
     image = models.ImageField(upload_to='card_images/', null=True, blank=True)  
     text = models.TextField()  
     recommended_by = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='recommended_cards')
@@ -43,8 +49,9 @@ class Card(models.Model):
     def __str__(self):
         return f"Card (ID: {self.id}) - {self.text[:20]}"  
     
-    class Meta:
+    class Meta: 
         ordering = ['-created_at']
+
 
 
 

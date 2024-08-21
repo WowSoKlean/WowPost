@@ -11,6 +11,13 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['wow-post.com', 'www.wow-post.com', '216.238.112.24']
 
+# WowPost/settings.py
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://wow-post.com',
+    'https://www.wow-post.com',
+]
+
 AUTH_USER_MODEL = 'Accounts.CustomUser'
 
 INSTALLED_APPS = [
@@ -61,11 +68,14 @@ WSGI_APPLICATION = 'WowPost.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
+#CREATE A LOCAL POSTGRESQL DATABASE AND CONNNECT IT BELOW. THIS ALLOWS FOR BETTER QUERY RESPONSE SPEEDS, AVOIDING NETWORK LATENCY.
+#SET UP A DATABASE BACKUP
+
 DATABASES = {
     'default': {}
 }
 
-DATABASES["default"] = dj_database_url.parse('postgres://jota:EHDAUUjfCcVlzfeguCYaeC0eve6N630S@dpg-cpma8308fa8c73afhr3g-a.ohio-postgres.render.com/wowdbgg')
+DATABASES["default"] = dj_database_url.parse('postgresql://jay:MS7BBuCdQqxlbLt578unQFJX1zoojoOl@dpg-cqm500bqf0us73a5c340-a.ohio-postgres.render.com/wowdbj')
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators

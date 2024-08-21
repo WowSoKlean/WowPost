@@ -9,6 +9,9 @@ from django.contrib import messages
 from .models import *
 from .utils import *
 from .forms import *
+import threading
+
+post_creation_lock = threading.Lock()
 
 def activateEmail(request, user, to_email):
     messages.success(request, f"""Dear <b>{user}</b>, please go to your email <b>{to_email}</b>
@@ -21,10 +24,11 @@ def sign_up(request):
         form = RegisterForm(request.POST)
 
         if form.is_valid():
-            user = form.save()
-            user.save()
+            with post_creation_lock:
+                user = form.save()
+                user.save()
 
-            messages.success(request, 'Your account has been created successfully! Back to home...')
+            messages.success(request, 'Conta criada com sucesso. Logue agora!')
 
             return redirect('/home')
     else:
@@ -44,20 +48,23 @@ def home(request):
     return render(request, 'Accounts/home.html', context)
 
 @login_required(login_url="/login")
-def profile(request):
+def profile(request, nanoid):
     user = request.user
-    user_card_image_urls = []
-    
-    for item in Card.objects.filter(owner=user):
-        if item.image:
-            user_card_image_urls.append(item.image.url)
-        
+    profile_user = get_object_or_404(CustomUser, id=nanoid)
+
+    is_own_profile = user == profile_user
+
+    user_card_image_urls = [item.image.url for item in Card.objects.filter(owner=profile_user) if item.image]
+
     context = {
         'user': user,
-        'user_card_image_urls': user_card_image_urls
+        'profile_user': profile_user,
+        'user_card_image_urls': user_card_image_urls,
+        'is_own_profile': is_own_profile
     }
-    
+
     return render(request, 'Accounts/profile.html', context)
+
 
 @login_required(login_url="/login")
 def profile_image_update(request):
@@ -66,9 +73,10 @@ def profile_image_update(request):
 
     if request.method == 'POST':
         form = UserImageForm(request.POST, request.FILES, instance=user_image_instance)
+
         if form.is_valid():
             form.save()
-            return redirect('/profile')  
+            return redirect('/profile/' + user.id)  
     else:
         form = UserImageForm(instance=user_image_instance)
     
@@ -79,10 +87,12 @@ def profile_bio_update(request):
     user = request.user
     
     if request.method == 'POST':
-        form = UserBioForm(request.POST, instance=user)
-        if form.is_valid():
-            form.save()
-            return redirect('/profile')  # Redirect to profile page after successful update
+        with post_creation_lock:
+            form = UserBioForm(request.POST, instance=user)
+
+            if form.is_valid():
+                form.save()
+                return redirect('/profile/' + user.id)  # Redirect to profile page after successful update
     else:
         form = UserBioForm(instance=user)
     
@@ -91,71 +101,81 @@ def profile_bio_update(request):
 @login_required(login_url="/login")
 def create_post(request):
     if request.method == 'POST':
-        form = CardForm(request.POST, request.FILES)
+        with post_creation_lock:
+            form = CardForm(request.POST, request.FILES)
 
-        if form.is_valid():
-            # Assign the current user as the owner of the card
-            card = form.save(commit=False)
-            card.owner = request.user  # Assuming the user object is stored in request.user
-            card.save()
+            if form.is_valid():
+                # Assign the current user as the owner of the card
+                card = form.save(commit=False)
+                card.owner = request.user  # Assuming the user object is stored in request.user
+                card.save()
 
-            return redirect('/home')
+                return redirect('/home')
     else:
         form = CardForm()
 
     return render(request, 'Accounts/create_post.html', {"form": form})
 
 @login_required(login_url="/login")
-def update_recommendation(request, card_id):
+def update_recommendation(request, id):
     user = request.user
     posts = Card.objects.all().order_by('-created_at')
-    card = get_object_or_404(Card, pk=card_id)
+
+    try:
+        card = get_object_or_404(Card, id=id)
+    except IndexError:
+        return JsonResponse({'error': 'Invalid card ID'})
 
     if request.method == 'POST':
-        recommend = request.POST.get('recommend')
+        with post_creation_lock:
+            recommend = request.POST.get('recommend')
 
-        if recommend == 'recommend':
-            if user not in card.recommended_by.all():
-                # User is recommending, add the association
-                card.recommended_by.add(user)
-                card.recommended_count += 1
-                card.save()
-        else:
-            # User is un-recommending
-            if user in card.recommended_by.all():
-                # User had recommended, remove the association
-                card.recommended_by.remove(user)
-                card.recommended_count -= 1
-                card.save()
+            if recommend == 'recommend':
+                if user not in card.recommended_by.all():
+                    card.recommended_by.add(user)
+                    card.recommended_count += 1
+                    card.save()
+            else:
+                if user in card.recommended_by.all():
+                    card.recommended_by.remove(user)
+                    card.recommended_count -= 1
+                    card.save()
 
-        for post in posts:
-            post.is_recommended = user in post.recommended_by.all()
+            for post in posts:
+                post.is_recommended = user in post.recommended_by.all()
 
-        data = {
-            'user': user,
-            'posts': posts,
-            'recommended_count': card.recommended_count,
-            'is_recommended': user in card.recommended_by.all()
-        }
+            data = {
+                'user': user,
+                'posts': posts,
+                'recommended_count': card.recommended_count,
+                'is_recommended': user in card.recommended_by.all()
+            }
 
-        return render(request, 'Accounts/home.html', data)
+            return render(request, 'Accounts/home.html', data)
     else:
         return JsonResponse({'error': 'Invalid request'})
-    
+
 @login_required(login_url="/login")
-def delete_post(request, card_id):
-    card = get_object_or_404(Card, pk=card_id)
+def delete_post(request, id):
+    try:
+        card = get_object_or_404(Card, id=id)
 
-    if request.method == 'POST':
-        if card.owner == request.user:
-            card.delete()
-
-            messages.success(request, 'The post was sucessfully deleted!')
-            return redirect('/home')
+        if card != None:
+            if request.method == 'POST':
+                with post_creation_lock:
+                    if card.owner == request.user:
+                        card.delete()
+                        messages.success(request, 'The post was successfully deleted!')
+                        return redirect('/home')
+                    else:
+                        return HttpResponseForbidden("Unknown error")
+            else:
+                    return JsonResponse({'error': 'Invalid request'})
         else:
-            return HttpResponseForbidden("")
-    else:
-        return JsonResponse({'error': 'Invalid request'})
+            return JsonResponse({'error': 'Invalid request'})
+    except:
+        return HttpResponseForbidden("Unknown error")
+    
 
 class CustomPasswordResetView(LoginRequiredMixin, PasswordResetView):
     def post(self, request, *args, **kwargs):
@@ -181,24 +201,26 @@ def custom_logout(request):
 @login_required(login_url="/login")
 def delete_account(request):
   if request.method == 'POST':
-    try:
-      # Account deletion logic (user removal, card updates)
-      user = request.user
+    with post_creation_lock:
+        try:
+            # Account deletion logic (user removal, card updates)
+            user = request.user
 
-      for card in Card.objects.all():
-        if user in card.recommended_by.all():
-          card.recommended_by.remove(user)
-          card.save()
+            for card in Card.objects.all():
+                if user in card.recommended_by.all():
+                    card.recommended_by.remove(user)
+                    card.save()
 
-      user.delete()
-      messages.success(request, 'Your account has been deleted!')
-      logout(request)  # Logout the user after deletion
+            user.delete()
+            messages.success(request, 'Your account has been deleted!')
+            logout(request)  # Logout the user after deletion
       
-      return redirect('/home')
+            return redirect('/home')
     
-    except Exception as e:
-      # Handle deletion errors here
-      return JsonResponse({'error': f'Account deletion failed: {e}'})
+        except Exception as e:
+            # Handle deletion errors here
+            return JsonResponse({'error': f'Account deletion failed: {e}'})
   else:
     return JsonResponse({'error': 'Invalid request'})
+
 

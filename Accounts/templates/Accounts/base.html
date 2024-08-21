@@ -25,7 +25,9 @@
             <ul class="navbar-nav mr-auto text-capitalize">
                 <li class="nav-item"><a href="/home" class="nav-link active">Home</a></li>
                 <li class="nav-item"><a href="/create-post" class="nav-link active">Write post</a></li>
-                <li class="nav-item"><a href="/profile" class="nav-link active">Profile</a></li>
+                <li class="nav-item">
+                  <a href="{% url 'profile' user.id %}" class="nav-link active">Profile</a>
+                </li>
                 <li class="nav-item"><a href="/logout" class="nav-link active">Logout</a></li>
             </ul>
 
@@ -76,3 +78,4 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/js/bootstrap.min.js"></script>
 </body>
 </html>
+
